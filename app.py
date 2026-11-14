@@ -105,10 +105,10 @@ def iniciar_sesion(cliente: Client):
                     respuesta = cliente.auth.sign_up(
                         {"email": correo.strip(), "password": contrasena}
                     )
-                except AuthError:
+                except AuthError as error:
                     logger.exception("No se pudo crear la cuenta en Supabase.")
                     st.error(
-                        "No se pudo crear la cuenta. Revisa el correo e inténtalo de nuevo."
+                        f"No se pudo crear la cuenta: {error}"
                     )
                 else:
                     if respuesta.session is None:
