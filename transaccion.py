@@ -9,6 +9,7 @@ class Transaccion:
     fecha: date
     categoria: str
     tipo: str
+    id: int | None = None
 
     def es_gasto(self):
         return self.tipo == "Gasto"

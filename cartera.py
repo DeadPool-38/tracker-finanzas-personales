@@ -19,6 +19,13 @@ class Cartera:
     def borrar_transacciones(self):
         self.transacciones.clear()
 
+    def eliminar_transaccion(self, transaccion_id: int) -> bool:
+        for indice, transaccion in enumerate(self.transacciones):
+            if transaccion.id == transaccion_id:
+                del self.transacciones[indice]
+                return True
+        return False
+
     @staticmethod
     def parsear_monto(monto):
         monto_limpio = monto.replace("$", "").replace(",", "").strip()

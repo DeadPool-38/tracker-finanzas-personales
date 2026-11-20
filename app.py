@@ -14,6 +14,8 @@ from transaccion import Transaccion
 
 logger = logging.getLogger(__name__)
 
+st.set_page_config(layout="wide")
+
 categorias = [
     "Alimentación",
     "Transporte",
@@ -49,7 +51,7 @@ def mostrar_titulos():
         "aquí puedes registrar tus ingresos y gastos,  así como visualizar tus finanzas "
         "de manera clara y sencilla."
     )
-    st.caption("Versión 1.5 - Desarrollado por Ing. Alan Ocaña.")
+    st.caption("Versión 1.6 - Desarrollado por Ing. Alan Ocaña.")
 
 
 def iniciar_sesion(cliente: Client):
@@ -220,13 +222,34 @@ def mostrar_filtros(cartera):
     return categorias_seleccionadas, fecha_desde, fecha_hasta
 
 
-def mostrar_transacciones(cartera):
+def mostrar_transacciones(cartera, repositorio, user_id):
     st.subheader("Transacciones Registradas")
 
     if cartera.transacciones:
-        df = cartera.a_dataframe()
-        df["monto"] = df["monto"].map("${:,.2f}".format)
-        st.dataframe(df, use_container_width=True)
+        columnas = st.columns([3, 1.3, 1.2, 1.5, 1, 0.9])
+        for columna, titulo in zip(
+            columnas, ["Descripción", "Monto", "Fecha", "Categoría", "Tipo", ""]
+        ):
+            columna.markdown(f"**{titulo}**")
+
+        for transaccion in list(cartera.transacciones):
+            columnas = st.columns([3, 1.3, 1.2, 1.5, 1, 0.9])
+            columnas[0].write(transaccion.descripcion)
+            columnas[1].write(f"${transaccion.monto:,.2f}")
+            columnas[2].write(transaccion.fecha.isoformat())
+            columnas[3].write(transaccion.categoria)
+            columnas[4].write(transaccion.tipo)
+            borrar = columnas[5].button(
+                "Borrar",
+                key=f"borrar_transaccion_{transaccion.id}",
+                disabled=transaccion.id is None,
+            )
+            if borrar and transaccion.id is not None:
+                repositorio.borrar_transaccion(user_id, transaccion.id)
+                st.session_state.cartera.eliminar_transaccion(transaccion.id)
+                cartera.transacciones.remove(transaccion)
+                st.success("El movimiento fue borrado correctamente.")
+
         st.download_button(
             "Descargar Transacciones",
             data=cartera.a_csv(),
@@ -243,11 +266,12 @@ def mostrar_resumen(cartera):
         return
 
     resumen = cartera.resumen()
-    columnas = st.columns(4)
+    columnas = st.columns(2)
     columnas[0].metric("Ingresos:", f"${resumen['ingresos']:,.2f}")
     columnas[1].metric("Gastos:", f"${resumen['gastos']:,.2f}")
-    columnas[2].metric("Balance:", f"${resumen['balance']:,.2f}")
-    columnas[3].metric("Gasto promedio:", f"${resumen['gasto_promedio']:,.2f}")
+    columnas = st.columns(2)
+    columnas[0].metric("Balance:", f"${resumen['balance']:,.2f}")
+    columnas[1].metric("Gasto promedio:", f"${resumen['gasto_promedio']:,.2f}")
 
 
 def mostrar_analisis(cartera):
@@ -309,7 +333,7 @@ def main():
         mostrar_resumen(cartera_filtrada)
 
     with tab_movimientos:
-        mostrar_transacciones(cartera_filtrada)
+        mostrar_transacciones(cartera_filtrada, repositorio, user_id)
 
     with tab_analisis:
         mostrar_analisis(cartera_filtrada)
