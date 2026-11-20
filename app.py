@@ -222,33 +222,48 @@ def mostrar_filtros(cartera):
     return categorias_seleccionadas, fecha_desde, fecha_hasta
 
 
-def mostrar_transacciones(cartera, repositorio, user_id):
+def borrar_transaccion_desde_tabla():
+    clic = st.session_state["movimientos_borrar_click"]
+    ids_visibles = st.session_state["movimientos_ids_visibles"]
+    indice = clic.row
+    if not isinstance(indice, int) or not 0 <= indice < len(ids_visibles):
+        raise RuntimeError("No se pudo identificar el movimiento seleccionado.")
+
+    transaccion_id = ids_visibles[indice]
+    repositorio = RepositorioSupabase(st.session_state.supabase_client)
+    repositorio.borrar_transaccion(st.session_state.user_id, transaccion_id)
+    if not st.session_state.cartera.eliminar_transaccion(transaccion_id):
+        raise RuntimeError("El movimiento borrado no se encontró en la cartera.")
+    st.session_state["movimiento_borrado"] = True
+
+
+def mostrar_transacciones(cartera):
     st.subheader("Transacciones Registradas")
 
-    if cartera.transacciones:
-        columnas = st.columns([3, 1.3, 1.2, 1.5, 1, 0.9])
-        for columna, titulo in zip(
-            columnas, ["Descripción", "Monto", "Fecha", "Categoría", "Tipo", ""]
-        ):
-            columna.markdown(f"**{titulo}**")
+    if st.session_state.pop("movimiento_borrado", False):
+        st.success("El movimiento fue borrado correctamente.")
 
-        for transaccion in list(cartera.transacciones):
-            columnas = st.columns([3, 1.3, 1.2, 1.5, 1, 0.9])
-            columnas[0].write(transaccion.descripcion)
-            columnas[1].write(f"${transaccion.monto:,.2f}")
-            columnas[2].write(transaccion.fecha.isoformat())
-            columnas[3].write(transaccion.categoria)
-            columnas[4].write(transaccion.tipo)
-            borrar = columnas[5].button(
-                "Borrar",
-                key=f"borrar_transaccion_{transaccion.id}",
-                disabled=transaccion.id is None,
-            )
-            if borrar and transaccion.id is not None:
-                repositorio.borrar_transaccion(user_id, transaccion.id)
-                st.session_state.cartera.eliminar_transaccion(transaccion.id)
-                cartera.transacciones.remove(transaccion)
-                st.success("El movimiento fue borrado correctamente.")
+    if cartera.transacciones:
+        st.session_state["movimientos_ids_visibles"] = [
+            transaccion.id for transaccion in cartera.transacciones
+        ]
+        df = cartera.a_dataframe()
+        df["monto"] = df["monto"].map("${:,.2f}".format)
+        df[""] = [":material/delete:"] * len(df)
+        st.dataframe(
+            df,
+            column_config={
+                "": st.column_config.ButtonColumn(
+                    "",
+                    help="Borrar movimiento",
+                    type="tertiary",
+                    on_click=borrar_transaccion_desde_tabla,
+                    key="movimientos_borrar_click",
+                )
+            },
+            hide_index=True,
+            use_container_width=True,
+        )
 
         st.download_button(
             "Descargar Transacciones",
@@ -333,7 +348,7 @@ def main():
         mostrar_resumen(cartera_filtrada)
 
     with tab_movimientos:
-        mostrar_transacciones(cartera_filtrada, repositorio, user_id)
+        mostrar_transacciones(cartera_filtrada)
 
     with tab_analisis:
         mostrar_analisis(cartera_filtrada)
